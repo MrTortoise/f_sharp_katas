@@ -18,52 +18,70 @@ type ScoreState =
 let initial_state = { playerAScore = 0; playerBScore = 0 }
 
 let score state =
-    let apply_if_unscored to_apply state =
+    let applyIfUnscored to_apply state =
         match state with
         | Scored s -> Scored s
         | Unhandled un -> (to_apply un)
 
-    let score_state_to_string state =
+    let scoreStateToString state =
         match state with
         | Scored s -> s
         | Unhandled _ -> "error unhandled scoring scenario"
 
-    let early_game_win_scorer state =
-        let simple_win_condition (current_player_score: int, other_player_score: int) =
+    let earlyGameWinScorer state =
+        let simpleWinCondition (current_player_score: int, other_player_score: int) =
             other_player_score < 3 && current_player_score > 3
 
         let handlePlayerAWon (state) =
-            match simple_win_condition (state.playerAScore, state.playerBScore) with
+            match simpleWinCondition (state.playerAScore, state.playerBScore) with
             | true -> Scored "Player A Won"
             | false -> Unhandled state
-            
+
         let handlePlayerBWon (state) =
-            match simple_win_condition (state.playerBScore, state.playerAScore) with
+            match simpleWinCondition (state.playerBScore, state.playerAScore) with
             | true -> Scored "Player B Won"
             | false -> Unhandled state
 
         state
-        |> apply_if_unscored (handlePlayerAWon)
-        |> apply_if_unscored (handlePlayerBWon)
+        |> applyIfUnscored (handlePlayerAWon)
+        |> applyIfUnscored (handlePlayerBWon)
+
+    let advantageGameScorer state =
+        let applyIfInAdvantage (to_apply: GameState -> ScoreState, game_state: GameState): ScoreState =
+            match game_state.playerAScore > 2 && game_state.playerBScore > 2 with
+            | true -> to_apply (game_state)
+            | false -> Unhandled game_state
+
+        let deuceScorer game_state =
+            match game_state.playerAScore = game_state.playerBScore with
+            | true -> Scored "Deuce"
+            | false -> Unhandled game_state
+        
+        let deuceScorerHandler state = applyIfInAdvantage(deuceScorer, state)
+
+        state
+        |> applyIfUnscored (deuceScorerHandler)
+
 
     let early_game_scorer state =
-        let calculate_score score = match score with
-                                    | 0 -> "L"
-                                    | 1 -> "15"
-                                    | 2 -> "30"
-                                    | 3 -> "40"
-                                    | _ -> "unsupported"
+        let calculate_score player_score = match player_score with
+                                           | 0 -> "L"
+                                           | 1 -> "15"
+                                           | 2 -> "30"
+                                           | 3 -> "40"
+                                           | _ -> "unsupported"
 
         let build_score_string state =
             Scored((calculate_score state.playerAScore) + "-" + (calculate_score state.playerBScore))
 
         state
-        |> apply_if_unscored (build_score_string)
+        |> applyIfUnscored (build_score_string)
 
     (Unhandled state)
-    |> early_game_win_scorer
+    |> earlyGameWinScorer
+    |> advantageGameScorer
     |> early_game_scorer
-    |> score_state_to_string
+    |> scoreStateToString
 
 let handle command state =
     match command with
@@ -128,16 +146,16 @@ let ``Score is PlayerBWon when player two scores 4 times and player 1 scores onc
                 |> handle (PlayerBScores())
 
     Assert.Equal("Player B Won", score state)
-    
-//[<Fact>]
-//let ``Score is deuce when it is 40-40``() =
-//    let state = initial_state
-//                |> handle (PlayerBScores())
-//                |> handle (PlayerAScores())
-//                |> handle (PlayerBScores())
-//                |> handle (PlayerAScores())
-//                |> handle (PlayerBScores())
-//                |> handle (PlayerAScores())
-//    
-//    Assert.Equal("Deuce", score state)
-    
+
+[<Fact>]
+let ``Score is deuce when it is 40-40``() =
+    let state = initial_state
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+
+    Assert.Equal("Deuce", score state)
+
