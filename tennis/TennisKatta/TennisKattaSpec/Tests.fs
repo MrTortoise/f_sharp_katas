@@ -22,11 +22,6 @@ let score state =
         match state with
         | Scored s -> Scored s
         | Unhandled un -> (to_apply un)
-
-    let scoreStateToString state =
-        match state with
-        | Scored s -> s
-        | Unhandled _ -> "error unhandled scoring scenario"
         
     let scoreGame condition result game_state =
         match condition with
@@ -93,6 +88,11 @@ let score state =
 
         state
         |> applyIfUnscored (build_score_string)
+        
+    let scoreStateToString state =
+        match state with
+        | Scored s -> s
+        | Unhandled _ -> "error unhandled scoring scenario"
 
     (Unhandled state)
     |> earlyGameWinScorer
