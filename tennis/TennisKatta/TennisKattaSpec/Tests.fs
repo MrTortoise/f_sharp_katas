@@ -27,69 +27,58 @@ let score state =
         match state with
         | Scored s -> s
         | Unhandled _ -> "error unhandled scoring scenario"
+        
+    let scoreGame condition result game_state =
+        match condition with
+        | true -> Scored result
+        | false -> Unhandled game_state
 
     let earlyGameWinScorer state =
         let simpleWinCondition (current_player_score: int, other_player_score: int) =
             other_player_score < 3 && current_player_score > 3
 
         let handlePlayerAWon (state) =
-            match simpleWinCondition (state.playerAScore, state.playerBScore) with
-            | true -> Scored "Player A Won"
-            | false -> Unhandled state
+            scoreGame (simpleWinCondition (state.playerAScore, state.playerBScore)) "Player A Won" state
+  
 
         let handlePlayerBWon (state) =
-            match simpleWinCondition (state.playerBScore, state.playerAScore) with
-            | true -> Scored "Player B Won"
-            | false -> Unhandled state
+            scoreGame (simpleWinCondition (state.playerBScore, state.playerAScore)) "Player B Won" state
 
         state
         |> applyIfUnscored (handlePlayerAWon)
         |> applyIfUnscored (handlePlayerBWon)
 
     let advantageGameScorer state =
-        let applyIfInAdvantage (to_apply: GameState -> ScoreState, game_state: GameState): ScoreState =
+        let applyIfInAdvantage (to_apply: GameState -> ScoreState) game_state =
             match game_state.playerAScore > 2 && game_state.playerBScore > 2 with
             | true -> to_apply (game_state)
             | false -> Unhandled game_state
 
         let deuceScorer game_state =
-            match game_state.playerAScore = game_state.playerBScore with
-            | true -> Scored "Deuce"
-            | false -> Unhandled game_state
-            
+            scoreGame (game_state.playerAScore = game_state.playerBScore) "Deuce" game_state
+
         let advantageAScorer game_state =
-            match game_state.playerAScore > game_state.playerBScore with
-            | true -> Scored "Adv PlayerA"
-            | false -> Unhandled game_state
-            
+            scoreGame (game_state.playerAScore > game_state.playerBScore) "Adv PlayerA" game_state
+
         let advantageBScorer game_state =
-            match game_state.playerBScore > game_state.playerAScore with
-            | true -> Scored "Adv PlayerB"
-            | false -> Unhandled game_state
-            
+            scoreGame (game_state.playerBScore > game_state.playerAScore) "Adv PlayerB" game_state
+
         let winnerPlayerA game_state =
-            match game_state.playerAScore > game_state.playerBScore + 1 with
-            | true -> Scored "Player A Won"
-            | false -> Unhandled game_state
-            
+            scoreGame (game_state.playerAScore > game_state.playerBScore + 1) "Player A Won" game_state
+
         let winnerPlayerB game_state =
-            match game_state.playerBScore > game_state.playerAScore + 1 with
-            | true -> Scored "Player B Won"
-            | false -> Unhandled game_state
+            scoreGame (game_state.playerBScore > game_state.playerAScore + 1) "Player B Won" game_state
         
-        let deuceScorerHandler state = applyIfInAdvantage(deuceScorer, state)
-        let advantageAHandler state = applyIfInAdvantage(advantageAScorer, state)
-        let advantageBHandler state = applyIfInAdvantage(advantageBScorer, state)
-        let winnerPlayerAHandler state = applyIfInAdvantage(winnerPlayerA, state)
-        let winnerPlayerBHandler state = applyIfInAdvantage(winnerPlayerB, state)
-
-        state
-        |> applyIfUnscored winnerPlayerAHandler
-        |> applyIfUnscored winnerPlayerBHandler
-        |> applyIfUnscored deuceScorerHandler
-        |> applyIfUnscored advantageAHandler
-        |> applyIfUnscored advantageBHandler
-
+        let apply_scorers (state : GameState) =
+            Unhandled state
+            |> applyIfUnscored winnerPlayerA
+            |> applyIfUnscored winnerPlayerB
+            |> applyIfUnscored deuceScorer
+            |> applyIfUnscored advantageAScorer
+            |> applyIfUnscored advantageBScorer
+        
+        state |> applyIfUnscored(applyIfInAdvantage(apply_scorers))
+            
 
     let early_game_scorer state =
         let calculate_score player_score = match player_score with
@@ -186,7 +175,7 @@ let ``Score is deuce when it is 40-40``() =
                 |> handle (PlayerAScores())
 
     Assert.Equal("Deuce", score state)
-    
+
 [<Fact>]
 let ``Score is advantage player a  when it is player A scores after deuce``() =
     let state = initial_state
@@ -212,7 +201,7 @@ let ``Score is advantage player b  when it is player b scores after deuce``() =
                 |> handle (PlayerBScores())
 
     Assert.Equal("Adv PlayerB", score state)
-    
+
 [<Fact>]
 let ``Score is deuce when player A scores after player B advantage``() =
     let state = initial_state
@@ -226,7 +215,7 @@ let ``Score is deuce when player A scores after player B advantage``() =
                 |> handle (PlayerAScores())
 
     Assert.Equal("Deuce", score state)
- 
+
 [<Fact>]
 let ``Player A wins when scoring after advantage``() =
     let state = initial_state
@@ -240,7 +229,7 @@ let ``Player A wins when scoring after advantage``() =
                 |> handle (PlayerAScores())
 
     Assert.Equal("Player A Won", score state)
-    
+
 [<Fact>]
 let ``Player B wins when scoring after advantage``() =
     let state = initial_state
@@ -254,5 +243,5 @@ let ``Player B wins when scoring after advantage``() =
                 |> handle (PlayerBScores())
 
     Assert.Equal("Player B Won", score state)
-    
+
 
