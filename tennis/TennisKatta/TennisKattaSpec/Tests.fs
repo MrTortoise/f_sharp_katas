@@ -29,15 +29,15 @@ let score state =
         | false -> Unhandled game_state
 
     let earlyGameWinScorer state =
-        let simpleWinCondition (current_player_score: int, other_player_score: int) =
+        let simpleWinCondition current_player_score other_player_score =
             other_player_score < 3 && current_player_score > 3
 
         let handlePlayerAWon (state) =
-            scoreGame (simpleWinCondition (state.playerAScore, state.playerBScore)) "Player A Won" state
+            scoreGame (simpleWinCondition state.playerAScore state.playerBScore) "Player A Won" state
   
 
         let handlePlayerBWon (state) =
-            scoreGame (simpleWinCondition (state.playerBScore, state.playerAScore)) "Player B Won" state
+            scoreGame (simpleWinCondition state.playerBScore state.playerAScore) "Player B Won" state
 
         state
         |> applyIfUnscored (handlePlayerAWon)
@@ -92,7 +92,7 @@ let score state =
     let scoreStateToString state =
         match state with
         | Scored s -> s
-        | Unhandled _ -> "error unhandled scoring scenario"
+        | Unhandled _ -> "error unhandled scoring scenario" // not possible to hit this, but that not knowable at compile time.
 
     (Unhandled state)
     |> earlyGameWinScorer
