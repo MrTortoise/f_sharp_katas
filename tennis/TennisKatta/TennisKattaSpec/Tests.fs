@@ -5,17 +5,20 @@ open Xunit
 
 type PlayerAScore = int
 type PlayerBScore = int
-type GameState = { playerAScore: PlayerAScore; playerBScore: PlayerBScore }
 
-type Commands =
-    | PlayerAScores of unit
-    | PlayerBScores of unit
+type GamePhase = Early | Advantage 
+type PlayerScore = Love | Fifteen | Thirty | Fourty | Deuce | Advantage
+type GameState = { playerAScore: PlayerAScore; playerBScore: PlayerBScore; phase: GamePhase; scoreA: PlayerScore;  scoreB: PlayerScore}
+
+type Commands = PlayerAScores | PlayerBScores 
 
 type ScoreState =
     | Scored of string
     | Unhandled of GameState
+    
 
-let initial_state = { playerAScore = 0; playerBScore = 0 }
+
+let initial_state = { playerAScore = 0; playerBScore = 0; phase = Early; scoreA = Love; scoreB = Love }
 
 let score state =
     let applyIfUnscored to_apply state =
@@ -112,135 +115,135 @@ let ``Score is L-L by default``() =
 
 [<Fact>]
 let ``Score is 15-L when player one scores``() =
-    let state = initial_state |> handle (PlayerAScores())
+    let state = initial_state |> handle (PlayerAScores)
     Assert.Equal("15-L", score state)
 
 [<Fact>]
 let ``Score is 15-15 when player one scores and player 2 scores``() =
     let state = initial_state
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
 
     Assert.Equal("15-15", score state)
 
 [<Fact>]
 let ``Score is 30-15 when player one scores twice and player 2 scores once``() =
     let state = initial_state
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
 
     Assert.Equal("30-15", score state)
 
 [<Fact>]
 let ``Score is 40-15 when player one scores 3 times and player 2 scores once``() =
     let state = initial_state
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerAScores())
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerAScores)
 
     Assert.Equal("40-15", score state)
 
 [<Fact>]
 let ``Score is PlayerAWins when player one scores 4 times and player 2 scores once``() =
     let state = initial_state
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerAScores())
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerAScores)
 
     Assert.Equal("Player A Won", score state)
 
 [<Fact>]
 let ``Score is PlayerBWon when player two scores 4 times and player 1 scores once``() =
     let state = initial_state
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerBScores())
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerBScores)
 
     Assert.Equal("Player B Won", score state)
 
 [<Fact>]
 let ``Score is deuce when it is 40-40``() =
     let state = initial_state
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
 
     Assert.Equal("Deuce", score state)
 
 [<Fact>]
 let ``Score is advantage player a  when it is player A scores after deuce``() =
     let state = initial_state
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerAScores())
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerAScores)
 
     Assert.Equal("Adv PlayerA", score state)
 
 [<Fact>]
 let ``Score is advantage player b  when it is player b scores after deuce``() =
     let state = initial_state
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
 
     Assert.Equal("Adv PlayerB", score state)
 
 [<Fact>]
 let ``Score is deuce when player A scores after player B advantage``() =
     let state = initial_state
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
 
     Assert.Equal("Deuce", score state)
 
 [<Fact>]
 let ``Player A wins when scoring after advantage``() =
     let state = initial_state
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerAScores())
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerAScores)
 
     Assert.Equal("Player A Won", score state)
 
 [<Fact>]
 let ``Player B wins when scoring after advantage``() =
     let state = initial_state
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerAScores())
-                |> handle (PlayerBScores())
-                |> handle (PlayerBScores())
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerAScores)
+                |> handle (PlayerBScores)
+                |> handle (PlayerBScores)
 
     Assert.Equal("Player B Won", score state)
 
