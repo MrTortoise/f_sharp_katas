@@ -56,11 +56,39 @@ let score state =
             match game_state.playerAScore = game_state.playerBScore with
             | true -> Scored "Deuce"
             | false -> Unhandled game_state
+            
+        let advantageAScorer game_state =
+            match game_state.playerAScore > game_state.playerBScore with
+            | true -> Scored "Adv PlayerA"
+            | false -> Unhandled game_state
+            
+        let advantageBScorer game_state =
+            match game_state.playerBScore > game_state.playerAScore with
+            | true -> Scored "Adv PlayerB"
+            | false -> Unhandled game_state
+            
+        let winnerPlayerA game_state =
+            match game_state.playerAScore > game_state.playerBScore + 1 with
+            | true -> Scored "Player A Won"
+            | false -> Unhandled game_state
+            
+        let winnerPlayerB game_state =
+            match game_state.playerBScore > game_state.playerAScore + 1 with
+            | true -> Scored "Player B Won"
+            | false -> Unhandled game_state
         
         let deuceScorerHandler state = applyIfInAdvantage(deuceScorer, state)
+        let advantageAHandler state = applyIfInAdvantage(advantageAScorer, state)
+        let advantageBHandler state = applyIfInAdvantage(advantageBScorer, state)
+        let winnerPlayerAHandler state = applyIfInAdvantage(winnerPlayerA, state)
+        let winnerPlayerBHandler state = applyIfInAdvantage(winnerPlayerB, state)
 
         state
-        |> applyIfUnscored (deuceScorerHandler)
+        |> applyIfUnscored winnerPlayerAHandler
+        |> applyIfUnscored winnerPlayerBHandler
+        |> applyIfUnscored deuceScorerHandler
+        |> applyIfUnscored advantageAHandler
+        |> applyIfUnscored advantageBHandler
 
 
     let early_game_scorer state =
@@ -158,4 +186,73 @@ let ``Score is deuce when it is 40-40``() =
                 |> handle (PlayerAScores())
 
     Assert.Equal("Deuce", score state)
+    
+[<Fact>]
+let ``Score is advantage player a  when it is player A scores after deuce``() =
+    let state = initial_state
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerAScores())
+
+    Assert.Equal("Adv PlayerA", score state)
+
+[<Fact>]
+let ``Score is advantage player b  when it is player b scores after deuce``() =
+    let state = initial_state
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+
+    Assert.Equal("Adv PlayerB", score state)
+    
+[<Fact>]
+let ``Score is deuce when player A scores after player B advantage``() =
+    let state = initial_state
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+
+    Assert.Equal("Deuce", score state)
+ 
+[<Fact>]
+let ``Player A wins when scoring after advantage``() =
+    let state = initial_state
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerAScores())
+
+    Assert.Equal("Player A Won", score state)
+    
+[<Fact>]
+let ``Player B wins when scoring after advantage``() =
+    let state = initial_state
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerAScores())
+                |> handle (PlayerBScores())
+                |> handle (PlayerBScores())
+
+    Assert.Equal("Player B Won", score state)
+    
 
