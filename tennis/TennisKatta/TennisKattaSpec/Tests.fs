@@ -6,107 +6,105 @@ open Xunit
 type PlayerAScore = int
 type PlayerBScore = int
 
-type GamePhase = Early | Advantage 
-type PlayerScore = Love | Fifteen | Thirty | Fourty | Deuce | Advantage
-type GameState = { playerAScore: PlayerAScore; playerBScore: PlayerBScore; phase: GamePhase; scoreA: PlayerScore;  scoreB: PlayerScore}
+exception PhaseHandlingError of string
+exception WinScoreExceeded of string
 
-type Commands = PlayerAScores | PlayerBScores 
+type GamePhase = | Early | Advantage | Won
+type PlayerScore = | Deuce | AdvantageA | AdvantageB | WonA | WonB
+type EarlyGameScore = | Love| Fifteen | Thirty | Fourty | Won
+type GameState = { playerAScore: EarlyGameScore; playerBScore: EarlyGameScore; phase: GamePhase; score: PlayerScore; }
+
+
+type Commands = | PlayerAScores | PlayerBScores
 
 type ScoreState =
     | Scored of string
     | Unhandled of GameState
-    
 
-
-let initial_state = { playerAScore = 0; playerBScore = 0; phase = Early; scoreA = Love; scoreB = Love }
+let initial_state = { playerAScore = Love; playerBScore = Love; phase = Early; score = Deuce }
 
 let score state =
-    let applyIfUnscored to_apply state =
-        match state with
-        | Scored s -> Scored s
-        | Unhandled un -> (to_apply un)
-        
-    let scoreGame condition result game_state =
-        match condition with
-        | true -> Scored result
-        | false -> Unhandled game_state
+    let calculate_score (player_score:EarlyGameScore) = match player_score with
+                                                        | Love -> "L"
+                                                        | Fifteen -> "15"
+                                                        | Thirty -> "30"
+                                                        | Fourty -> "40"
+                                                        | Won -> "unsupported"
 
-    let earlyGameWinScorer state =
-        let simpleWinCondition current_player_score other_player_score =
-            other_player_score < 3 && current_player_score > 3
+    let build_early_score_string state =
+        (calculate_score state.playerAScore) + "-" + (calculate_score state.playerBScore)
 
-        let handlePlayerAWon (state) =
-            scoreGame (simpleWinCondition state.playerAScore state.playerBScore) "Player A Won" state
-  
+    let build_advantage_string state =
+        match state.score with
+        | AdvantageA -> "Adv PlayerA"
+        | AdvantageB -> "Adv PlayerB"
+        | Deuce -> "Deuce"
+        | WonA -> "Player A Won"
+        | WonB -> "Player B Won"
 
-        let handlePlayerBWon (state) =
-            scoreGame (simpleWinCondition state.playerBScore state.playerAScore) "Player B Won" state
+    match state.phase with
+    | Early -> build_early_score_string state
+    | _ -> build_advantage_string state
 
-        state
-        |> applyIfUnscored (handlePlayerAWon)
-        |> applyIfUnscored (handlePlayerBWon)
 
-    let advantageGameScorer state =
-        let applyIfInAdvantage (to_apply: GameState -> ScoreState) game_state =
-            match game_state.playerAScore > 2 && game_state.playerBScore > 2 with
-            | true -> to_apply (game_state)
-            | false -> Unhandled game_state
+let set_phase_to_advantage state =
+    match state.playerAScore = Fourty && state.playerBScore = Fourty with
+    | true -> { state with phase = Advantage }
+    | false -> state
 
-        let deuceScorer game_state =
-            scoreGame (game_state.playerAScore = game_state.playerBScore) "Deuce" game_state
+let set_playerA_won state =
+    match state.playerAScore = Won with
+    | true -> { state with score = WonA; phase = Advantage }
+    | false -> state
 
-        let advantageAScorer game_state =
-            scoreGame (game_state.playerAScore > game_state.playerBScore) "Adv PlayerA" game_state
+let set_playerB_won state =
+    match state.playerBScore = Won with
+    | true -> { state with score = WonB; phase = Advantage }
+    | false -> state
+    
+let increment_playerA_score state =
+    match state.playerAScore with
+    | Love -> Fifteen
+    | Fifteen -> Thirty
+    | Thirty -> Fourty
+    | Fourty -> Won
+    | Won -> raise (WinScoreExceeded("Player A score exceeded win condition"))
 
-        let advantageBScorer game_state =
-            scoreGame (game_state.playerBScore > game_state.playerAScore) "Adv PlayerB" game_state
+let increment_playerB_score state =
+    match state.playerBScore with
+    | Love -> Fifteen
+    | Fifteen -> Thirty
+    | Thirty -> Fourty
+    | Fourty -> Won
+    | Won -> raise (WinScoreExceeded("Player B score exceeded win condition"))
 
-        let winnerPlayerA game_state =
-            scoreGame (game_state.playerAScore > game_state.playerBScore + 1) "Player A Won" game_state
+let earlyGameScore command state =
+    match command with
+    | PlayerAScores -> { state with playerAScore = (increment_playerA_score state) }
+    | PlayerBScores -> { state with playerBScore = (increment_playerB_score state) }
+    |> set_phase_to_advantage
+    |> set_playerA_won
+    |> set_playerB_won
 
-        let winnerPlayerB game_state =
-            scoreGame (game_state.playerBScore > game_state.playerAScore + 1) "Player B Won" game_state
-        
-        let apply_scorers (state : GameState) =
-            Unhandled state
-            |> applyIfUnscored winnerPlayerA
-            |> applyIfUnscored winnerPlayerB
-            |> applyIfUnscored deuceScorer
-            |> applyIfUnscored advantageAScorer
-            |> applyIfUnscored advantageBScorer
-        
-        state |> applyIfUnscored(applyIfInAdvantage(apply_scorers))
-            
 
-    let early_game_scorer state =
-        let calculate_score player_score = match player_score with
-                                           | 0 -> "L"
-                                           | 1 -> "15"
-                                           | 2 -> "30"
-                                           | 3 -> "40"
-                                           | _ -> "unsupported"
+let handleAdvantage command state =
+    match state.score with
+    | Deuce -> match command with
+               | PlayerAScores -> { state with score = AdvantageA }
+               | PlayerBScores -> { state with score = AdvantageB }
+    | AdvantageA -> match command with
+                    | PlayerAScores -> { state with score = WonA }
+                    | PlayerBScores -> { state with score = Deuce }
+    | AdvantageB -> match command with
+                    | PlayerAScores -> { state with score = Deuce }
+                    | PlayerBScores -> { state with score = WonB }
+    | _ -> raise (PhaseHandlingError("attempting to score game that isnt in advantage phase using advantage phase rules"))
 
-        let build_score_string state =
-            Scored((calculate_score state.playerAScore) + "-" + (calculate_score state.playerBScore))
-
-        state
-        |> applyIfUnscored (build_score_string)
-        
-    let scoreStateToString state =
-        match state with
-        | Scored s -> s
-        | Unhandled _ -> "error unhandled scoring scenario" // not possible to hit this, but that not knowable at compile time.
-
-    (Unhandled state)
-    |> earlyGameWinScorer
-    |> advantageGameScorer
-    |> early_game_scorer
-    |> scoreStateToString
 
 let handle command state =
-    match command with
-    | PlayerAScores _ -> { state with playerAScore = state.playerAScore + 1 }
-    | PlayerBScores _ -> { state with playerBScore = state.playerBScore + 1 }
+    match state.phase with
+    | Early -> earlyGameScore command state
+    | _ -> handleAdvantage command state
 
 
 [<Fact>]
