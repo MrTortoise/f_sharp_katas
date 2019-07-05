@@ -12,8 +12,11 @@ exception WinScoreExceeded of string
 type GamePhase = | Early | Advantage | Won
 type PlayerScore = | Deuce | AdvantageA | AdvantageB | WonA | WonB
 type EarlyGameScore = | Love| Fifteen | Thirty | Fourty | Won
-type GameState = { playerAScore: EarlyGameScore; playerBScore: EarlyGameScore; phase: GamePhase; score: PlayerScore; }
-
+type EarlyGameState = {playerA: EarlyGameScore; playerB: EarlyGameScore}
+type AdvantageState = {score: PlayerScore}
+type GameState =
+    | EarlyGame of EarlyGameState
+    | AdvantageGame of AdvantageState
 
 type Commands = | PlayerAScores | PlayerBScores
 
@@ -21,10 +24,11 @@ type ScoreState =
     | Scored of string
     | Unhandled of GameState
 
-let initial_state = { playerAScore = Love; playerBScore = Love; phase = Early; score = Deuce }
+let initial_state = EarlyGame {playerA = Love;  playerB = Love}
+let deuce = {score = Deuce}
 
 let score state =
-    let calculate_score (player_score:EarlyGameScore) = match player_score with
+    let score_to_string (player_score:EarlyGameScore) = match player_score with
                                                         | Love -> "L"
                                                         | Fifteen -> "15"
                                                         | Thirty -> "30"
@@ -32,7 +36,7 @@ let score state =
                                                         | Won -> "unsupported"
 
     let build_early_score_string state =
-        (calculate_score state.playerAScore) + "-" + (calculate_score state.playerBScore)
+        (score_to_string state.playerA) + "-" + (score_to_string state.playerB)
 
     let build_advantage_string state =
         match state.score with
@@ -42,46 +46,44 @@ let score state =
         | WonA -> "Player A Won"
         | WonB -> "Player B Won"
 
-    match state.phase with
-    | Early -> build_early_score_string state
-    | _ -> build_advantage_string state
+    match state with
+    | EarlyGame s -> build_early_score_string s
+    | AdvantageGame s-> build_advantage_string s    
 
 
 let set_phase_to_advantage state =
-    match state.playerAScore = Fourty && state.playerBScore = Fourty with
-    | true -> { state with phase = Advantage }
-    | false -> state
+    match state.playerA = Fourty && state.playerB = Fourty with
+    | true -> AdvantageGame {score= Deuce}
+    | false -> EarlyGame state
 
 let set_playerA_won state =
-    match state.playerAScore = Won with
-    | true -> { state with score = WonA; phase = Advantage }
-    | false -> state
+    match state with
+    | EarlyGame s -> match s.playerA = Won with
+                     | true -> AdvantageGame {score = WonA}
+                     | false -> EarlyGame s
+    | AdvantageGame _ -> state
+    
 
 let set_playerB_won state =
-    match state.playerBScore = Won with
-    | true -> { state with score = WonB; phase = Advantage }
-    | false -> state
+    match state with
+    | EarlyGame s -> match s.playerB = Won with
+                     | true -> AdvantageGame {score = WonB}
+                     | false -> EarlyGame s
+    | AdvantageGame _ -> state
     
-let increment_playerA_score state =
-    match state.playerAScore with
+    
+let increment_score score =
+    match score with
     | Love -> Fifteen
     | Fifteen -> Thirty
     | Thirty -> Fourty
     | Fourty -> Won
     | Won -> raise (WinScoreExceeded("Player A score exceeded win condition"))
 
-let increment_playerB_score state =
-    match state.playerBScore with
-    | Love -> Fifteen
-    | Fifteen -> Thirty
-    | Thirty -> Fourty
-    | Fourty -> Won
-    | Won -> raise (WinScoreExceeded("Player B score exceeded win condition"))
-
 let earlyGameScore command state =
     match command with
-    | PlayerAScores -> { state with playerAScore = (increment_playerA_score state) }
-    | PlayerBScores -> { state with playerBScore = (increment_playerB_score state) }
+    | PlayerAScores -> { state with playerA = (increment_score state.playerA) }
+    | PlayerBScores -> { state with playerB = (increment_score state.playerB) }
     |> set_phase_to_advantage
     |> set_playerA_won
     |> set_playerB_won
@@ -102,9 +104,9 @@ let handleAdvantage command state =
 
 
 let handle command state =
-    match state.phase with
-    | Early -> earlyGameScore command state
-    | _ -> handleAdvantage command state
+    match state with
+    | EarlyGame s -> earlyGameScore command s
+    | AdvantageGame s -> AdvantageGame (handleAdvantage command s)
 
 
 [<Fact>]
