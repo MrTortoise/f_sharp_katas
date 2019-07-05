@@ -3,17 +3,14 @@ module Tests
 open System
 open Xunit
 
-type PlayerAScore = int
-type PlayerBScore = int
 
 exception PhaseHandlingError of string
 exception WinScoreExceeded of string
 
-type GamePhase = | Early | Advantage | Won
 type PlayerScore = | Deuce | AdvantageA | AdvantageB | WonA | WonB
-type EarlyGameScore = | Love| Fifteen | Thirty | Fourty | Won
-type EarlyGameState = {playerA: EarlyGameScore; playerB: EarlyGameScore}
-type AdvantageState = {score: PlayerScore}
+type EarlyGameScore = | Love | Fifteen | Thirty | Fourty | Won
+type EarlyGameState = { playerA: EarlyGameScore; playerB: EarlyGameScore }
+type AdvantageState = { score: PlayerScore }
 type GameState =
     | EarlyGame of EarlyGameState
     | AdvantageGame of AdvantageState
@@ -24,22 +21,18 @@ type ScoreState =
     | Scored of string
     | Unhandled of GameState
 
-let initial_state = EarlyGame {playerA = Love;  playerB = Love}
-let deuce = {score = Deuce}
+let initial_state = EarlyGame { playerA = Love; playerB = Love }
 
 let score state =
-    let score_to_string (player_score:EarlyGameScore) = match player_score with
-                                                        | Love -> "L"
-                                                        | Fifteen -> "15"
-                                                        | Thirty -> "30"
-                                                        | Fourty -> "40"
-                                                        | Won -> "unsupported"
+    let early_to_string player_score = match player_score with
+                                       | Love -> "L"
+                                       | Fifteen -> "15"
+                                       | Thirty -> "30"
+                                       | Fourty -> "40"
+                                       | Won -> "unsupported"
 
-    let build_early_score_string state =
-        (score_to_string state.playerA) + "-" + (score_to_string state.playerB)
-
-    let build_advantage_string state =
-        match state.score with
+    let advantage_to_string score =
+        match score with
         | AdvantageA -> "Adv PlayerA"
         | AdvantageB -> "Adv PlayerB"
         | Deuce -> "Deuce"
@@ -47,31 +40,31 @@ let score state =
         | WonB -> "Player B Won"
 
     match state with
-    | EarlyGame s -> build_early_score_string s
-    | AdvantageGame s-> build_advantage_string s    
+    | EarlyGame s -> (early_to_string s.playerA) + "-" + (early_to_string s.playerB)
+    | AdvantageGame s -> advantage_to_string s.score
 
 
 let set_phase_to_advantage state =
     match state.playerA = Fourty && state.playerB = Fourty with
-    | true -> AdvantageGame {score= Deuce}
+    | true -> AdvantageGame { score = Deuce }
     | false -> EarlyGame state
 
 let set_playerA_won state =
     match state with
     | EarlyGame s -> match s.playerA = Won with
-                     | true -> AdvantageGame {score = WonA}
+                     | true -> AdvantageGame { score = WonA }
                      | false -> EarlyGame s
     | AdvantageGame _ -> state
-    
+
 
 let set_playerB_won state =
     match state with
     | EarlyGame s -> match s.playerB = Won with
-                     | true -> AdvantageGame {score = WonB}
+                     | true -> AdvantageGame { score = WonB }
                      | false -> EarlyGame s
     | AdvantageGame _ -> state
-    
-    
+
+
 let increment_score score =
     match score with
     | Love -> Fifteen
@@ -106,7 +99,7 @@ let handleAdvantage command state =
 let handle command state =
     match state with
     | EarlyGame s -> earlyGameScore command s
-    | AdvantageGame s -> AdvantageGame (handleAdvantage command s)
+    | AdvantageGame s -> AdvantageGame(handleAdvantage command s)
 
 
 [<Fact>]
