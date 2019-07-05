@@ -3,7 +3,6 @@ module Tests
 open System
 open Xunit
 
-
 exception PhaseHandlingError of string
 exception WinScoreExceeded of string
 
@@ -78,7 +77,6 @@ let handle command state =
         |> transition_to_advantage_game
         |> set_playerA_won
         |> set_playerB_won
-
 
     let handleAdvantage command state =
         match state.score with
