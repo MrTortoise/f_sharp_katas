@@ -43,60 +43,56 @@ let score state =
     | EarlyGame s -> (early_to_string s.playerA) + "-" + (early_to_string s.playerB)
     | AdvantageGame s -> advantage_to_string s.score
 
-
-let set_phase_to_advantage state =
-    match state.playerA = Fourty && state.playerB = Fourty with
-    | true -> AdvantageGame { score = Deuce }
-    | false -> EarlyGame state
-
-let set_playerA_won state =
-    match state with
-    | EarlyGame s -> match s.playerA = Won with
-                     | true -> AdvantageGame { score = WonA }
-                     | false -> EarlyGame s
-    | AdvantageGame _ -> state
-
-
-let set_playerB_won state =
-    match state with
-    | EarlyGame s -> match s.playerB = Won with
-                     | true -> AdvantageGame { score = WonB }
-                     | false -> EarlyGame s
-    | AdvantageGame _ -> state
-
-
-let increment_score score =
-    match score with
-    | Love -> Fifteen
-    | Fifteen -> Thirty
-    | Thirty -> Fourty
-    | Fourty -> Won
-    | Won -> raise (WinScoreExceeded("Player A score exceeded win condition"))
-
-let earlyGameScore command state =
-    match command with
-    | PlayerAScores -> { state with playerA = (increment_score state.playerA) }
-    | PlayerBScores -> { state with playerB = (increment_score state.playerB) }
-    |> set_phase_to_advantage
-    |> set_playerA_won
-    |> set_playerB_won
-
-
-let handleAdvantage command state =
-    match state.score with
-    | Deuce -> match command with
-               | PlayerAScores -> { state with score = AdvantageA }
-               | PlayerBScores -> { state with score = AdvantageB }
-    | AdvantageA -> match command with
-                    | PlayerAScores -> { state with score = WonA }
-                    | PlayerBScores -> { state with score = Deuce }
-    | AdvantageB -> match command with
-                    | PlayerAScores -> { state with score = Deuce }
-                    | PlayerBScores -> { state with score = WonB }
-    | _ -> raise (PhaseHandlingError("attempting to score game that isnt in advantage phase using advantage phase rules"))
-
-
 let handle command state =
+    let transition_to_advantage_game state =
+        match state.playerA = Fourty && state.playerB = Fourty with
+        | true -> AdvantageGame { score = Deuce }
+        | false -> EarlyGame state
+
+    let set_playerA_won state =
+        match state with
+        | EarlyGame s -> match s.playerA = Won with
+                         | true -> AdvantageGame { score = WonA }
+                         | false -> EarlyGame s
+        | AdvantageGame _ -> state
+
+    let set_playerB_won state =
+        match state with
+        | EarlyGame s -> match s.playerB = Won with
+                         | true -> AdvantageGame { score = WonB }
+                         | false -> EarlyGame s
+        | AdvantageGame _ -> state
+
+    let increment_score score =
+        match score with
+        | Love -> Fifteen
+        | Fifteen -> Thirty
+        | Thirty -> Fourty
+        | Fourty -> Won
+        | Won -> raise (WinScoreExceeded("Player A score exceeded win condition"))
+
+    let earlyGameScore command state =
+        match command with
+        | PlayerAScores -> { state with playerA = (increment_score state.playerA) }
+        | PlayerBScores -> { state with playerB = (increment_score state.playerB) }
+        |> transition_to_advantage_game
+        |> set_playerA_won
+        |> set_playerB_won
+
+
+    let handleAdvantage command state =
+        match state.score with
+        | Deuce -> match command with
+                   | PlayerAScores -> { state with score = AdvantageA }
+                   | PlayerBScores -> { state with score = AdvantageB }
+        | AdvantageA -> match command with
+                        | PlayerAScores -> { state with score = WonA }
+                        | PlayerBScores -> { state with score = Deuce }
+        | AdvantageB -> match command with
+                        | PlayerAScores -> { state with score = Deuce }
+                        | PlayerBScores -> { state with score = WonB }
+        | _ -> raise (PhaseHandlingError("attempting to score game that isnt in advantage phase using advantage phase rules"))
+        
     match state with
     | EarlyGame s -> earlyGameScore command s
     | AdvantageGame s -> AdvantageGame(handleAdvantage command s)
